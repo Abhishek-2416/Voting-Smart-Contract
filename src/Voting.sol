@@ -46,7 +46,7 @@ contract Voting{
         }
 
         // we're tracking whether or not someone has already voted 
-        // and we're keeping track as well of what they voted
+        // and we're keeping track as well of what they voted.
         proposal.voteStates[msg.sender] = opinion ? VoteStates.Yes : VoteStates.No;
 
     }
