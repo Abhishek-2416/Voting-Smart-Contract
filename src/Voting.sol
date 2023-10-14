@@ -1,53 +1,71 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-contract Voting{
-    enum VoteStates{Absent,Yes,No}
+contract Voting {
+    enum VoteStates {Absent, Yes, No}
 
-    event ProposalCreated(uint256 proposalId );
-
-    struct Proposal{
+    struct Proposal {
         address target;
         bytes data;
-        uint256 yesCount;
-        uint256 noCount;
+        uint yesCount;
+        uint noCount;
         mapping (address => VoteStates) voteStates;
     }
 
     Proposal[] public proposals;
 
+    event ProposalCreated(uint);
+    event VoteCast(uint, address indexed);
+
+    mapping(address => bool) public members;
+
+    address immutable owner;
+
+    constructor(address[] memory addresses)payable{
+        owner = msg.sender;
+        uint256 length = addresses.length;
+        for(uint i = 0; i < length; i++){
+            members[addresses[i]] = true;
+        }
+    }
+
     function newProposal(address _target, bytes calldata _data) external {
-    Proposal storage proposal = proposals.push();
-    proposal.target = _target;
-    proposal.data = _data;
-    proposal.yesCount = 0;
-    proposal.noCount = 0;
+        require(members[msg.sender] || msg.sender == owner);
+        emit ProposalCreated(proposals.length);
+        Proposal storage proposal = proposals.push();
+        proposal.target = _target;
+        proposal.data = _data;
+    }
 
-    emit ProposalCreated(proposals.length);
-}
+    function castVote(uint _proposalId, bool _supports) external {
+        require(members[msg.sender] || msg.sender == owner);
+        Proposal storage proposal = proposals[_proposalId];
 
-
-    function castVote(uint proposalId , bool opinion) external{
-        Proposal storage proposal = proposals[proposalId];
-
-        //Here we are clearing out the previous vote
-        if(proposal.voteStates[msg.sender] == VoteStates.Yes){
+        // clear out previous vote
+        if(proposal.voteStates[msg.sender] == VoteStates.Yes) {
             proposal.yesCount--;
         }
-        if(proposal.voteStates[msg.sender] == VoteStates.No){
+        if(proposal.voteStates[msg.sender] == VoteStates.No) {
             proposal.noCount--;
         }
 
-        //Here we are adding new vote
-        if(opinion){
+        // add new vote
+        if(_supports) {
             proposal.yesCount++;
-        }else {
+        }
+        else {
             proposal.noCount++;
         }
 
-        // we're tracking whether or not someone has already voted 
-        // and we're keeping track as well of what they voted.
-        proposal.voteStates[msg.sender] = opinion ? VoteStates.Yes : VoteStates.No;
+        // we're tracking whether or not someone has already voted
+        // and we're keeping track as well of what they voted
+        proposal.voteStates[msg.sender] = _supports ? VoteStates.Yes : VoteStates.No;
 
+        if(proposal.yesCount >= 10){
+            (bool s,) = proposal.target.call(proposal.data);
+            require(s);
+        }
+
+        emit VoteCast(_proposalId, msg.sender);
     }
 }
